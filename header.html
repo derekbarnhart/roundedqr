@@ -1,0 +1,660 @@
+<!doctype html>
+<!-- paulirish.com/2008/conditional-stylesheets-vs-css-hacks-answer-neither/ -->
+<!--[if lt IE 7 ]> <html class="no-js ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]>    <html class="no-js ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]>    <html class="no-js ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--> <html class="no-js" lang="en"> <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+
+  <!-- Always force latest IE rendering engine (even in intranet) & Chrome Frame
+       Remove this if you use the .htaccess -->
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+
+  <title></title>
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!-- Mobile viewport optimized: j.mp/bplateviewport -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Place favicon.ico & apple-touch-icon.png in the root of your domain and delete these references -->
+  <link rel="shortcut icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+
+  <!-- CSS: implied media="all" -->
+    <!--<link rel="stylesheet" href="css/style.css?v=2"> -->
+  <link rel="stylesheet" href="http://code.jquery.com/mobile/1.0.1/jquery.mobile-1.0.1.min.css" />
+  <!-- Uncomment if you are specifically targeting less enabled mobile browsers
+  <link rel="stylesheet" media="handheld" href="css/handheld.css?v=2">  -->
+
+  <!-- All JavaScript at the bottom, except for Modernizr which enables HTML5 elements & feature detects -->
+  <script src="http://code.jquery.com/jquery-1.6.4.min.js"></script>
+  <script src="http://code.jquery.com/mobile/1.0.1/jquery.mobile-1.0.1.min.js"></script>
+   <!-- <script src="js/libs/modernizr-1.7.min.js"></script>-->
+<style>
+	
+	#logo
+	{
+		margin-top:25px;
+			text-align:center;
+	}
+	
+	#content_header
+	{
+		text-align:center;
+	}
+	#promo_image
+	{
+		display:block;
+		margin-left:auto;
+		margin-right:auto;
+		margin-top:10px;
+		margin-bottom:10px;
+	text-align:center;
+	}
+	
+	#hours,#minutes,#seconds
+	{
+		color:red;
+		font-size:22pt;		
+	}
+	
+	#count_down
+	{
+		text-align:center;
+		font-weight:bold;
+	}
+	#count_down h2
+	{
+		font-size:18pt;
+	}
+	
+	.list_progress
+	{
+		font-size:18pt;
+		color:#E37900;	
+	}
+	.list_name
+	{
+		font-size:14pt;
+		color:#3b3b3b;	
+		text-decoration:none;
+	}
+	.list_rank
+	{
+		font-size:16pt;
+		color:#2C22A1;	
+	}
+	
+	.list_progress,.list_name,.list_rank 
+	{
+		text-decoration:none;
+	}
+	
+	.sponsor_title
+	{
+	/*      white-space: nowrap; */
+            font-size: 16px;
+            display: block;
+            text-overflow: ellipsis;
+            max-height: 32px;
+            overflow: hidden;
+
+	}
+	
+</style>
+</head>
+<div id="fb-root"></div>
+<script src="js/facebook_loader_min.js"></script>
+<body>
+  <script>
+	//////////////////////////////////////////////////////////////////////////////
+	// Variable Declaration 
+	//////////////////////////////////////////////////////////////////////////////
+	
+	//Application parameters
+	var debug = true;
+	var base_site = "http://kodely.nfshost.com/qrusadetest/";
+	
+	//General return variables
+	var results;
+	
+	//Event variables
+	//event_id ='EfWM6D5sJl';
+	event_id ='1';
+	
+	//Promotion variables
+	var promo_list = {};
+	var promos;
+	var promo_ref={};
+	var item_count=0;
+	var promo_id;
+	var this_promo;
+	
+	//Facebook and authentication variables 
+	var uid="";
+	var accessToken="";
+	var urlParams = {};
+	var logged_in = false;
+	var userData;
+	
+	//
+	var friendsWithApp = new Array();
+	var friendsNoApp = new Array();
+	//
+	count_down = new Object();
+	var timer_is_on=1;
+	var t;
+	
+	//////////////////////////////////////////////////////////////////////////////
+	// Function Declarations 
+	//////////////////////////////////////////////////////////////////////////////
+	
+	function initializeApp()
+	{
+			$("#scavengers").live( "pagebeforeshow",function(){
+			log('scavengers pageshow');
+			getUrlParams();
+			//TODO allow other events
+			
+			//event_id ='EfWM6D5sJl'; //urlParams['event_id'];
+			event_id ='1'; //urlParams['event_id'];
+			//TODO validate that promo has been provided
+			if(uid==="")
+			{
+				authenticateUser("getAppUsers('"+event_id+"');"); 
+				log('authenthicatUser() called');
+			}else
+			{
+				getAppUsers(event_id);
+			}		
+		});
+		
+	
+		$("#promo").live( "pagebeforeshow",function(){
+			log('promo pageshow');
+			getUrlParams();
+			promo_id = urlParams['promo_id'];
+			log('promo_id '+promo_id);
+			//TODO validate that promo has been provided
+			if(uid==="")
+			{
+				authenticateUser("loadPromo();"); 
+				log('authenthicatUser() called');
+			}else
+			{
+				loadPromo();
+			}
+			
+		});	
+		
+		$("#progress_content").live("pageload",function()
+		{
+			getUrlParams();
+			log("progress pageshow");
+			if(uid==="")
+			{
+				authenticateUser(); 
+				log('authenthicatUser() called');
+			}else
+			{
+				//getPromos();
+				//$.mobile.changePage($('#progress'));
+			}
+		});							
+	}	
+	
+	
+	function showUser()
+	{
+		$('.fb_info').html('<div class="ui-block-a"><img id="logo" src="https://graph.facebook.com/' + userData.id + '/picture"/></div><div class="ui-block-b" style="padding:5px;margin-top:5px;"><h4>'+userData.name+'</h4></div>');
+	}
+	function getAppUsers(eventID)
+	{		
+		var graphAddress;
+		
+		graphAddress = typeof location !== 'undefined' ? location : "https://graph.facebook.com/me/friends?access_token="+accessToken+"&fields=installed";
+		
+		
+		/**FB.api('me/friends?fields=installed',function(response) 
+		{
+		
+			console.log(response);
+		
+		})*/
+		$.mobile.showPageLoadingMsg("a","Getting leaderboard");
+		$.ajax({
+		  url: base_site+"/leaderboard.php?event_id="+eventID,
+		  dataType:'json',
+			success: function(data, textStatus, jqXHR)
+			{
+				buildLeaderBoard(data)
+				//console.log(data);
+				$.mobile.hidePageLoadingMsg();
+			},
+			error: function()
+			{
+				$.mobile.hidePageLoadingMsg();
+				alert("Woops we had trouble getting the leaderboard.");
+			}			
+		});	
+	}
+	
+	
+	function buildLeaderBoard(json)
+	{var buildString = "";
+		for(person in json)
+		{	
+			console.log(json[person])
+			
+		
+		buildString +='<li><a href="#">';
+		buildString +='<img src="https://graph.facebook.com/'+json[person].fb_uid+'/picture" class="ui-li-thumb">';
+		buildString +='<h4>'+json[person].name+'</h4>';
+		buildString +='<div class="ui-grid-a">';
+		buildString +='<div class="ui-block-a">#'+json[person].place+'</div>';
+		buildString +='<div class="ui-block-b">'+json[person].scans+'/10 Scans</div></div></a></li>';				
+		
+		}
+		$('#scavenger_list').html(buildString);
+		$('#scavenger_list').listview('refresh');
+	}
+
+	
+	
+	function processFriends(json)
+	{
+		var count =0;
+		for(friend in json.data)
+		{
+			if(typeof json.data[count].installed !== 'undefined')
+			{
+				friendsWithApp.push(json.data[count].id);
+				createScavenger(json.data[count].id);
+			}else
+			{
+				friendsNoApp.push(json.data[count].id);
+			}
+			count++;
+		}
+	}
+	
+	
+	
+	function createScavenger(fbid,name,count,place)
+	{	
+	var buildString = "";
+		buildString +='<li><a href="#">';
+		buildString +='<img src="https://graph.facebook.com/'+fbid+'/picture" class="ui-li-thumb">';
+		buildString +='<h4>'+name+'</h4>';
+		buildString +='<div class="ui-grid-a">';
+		buildString +='<div class="ui-block-a">#'+place+'</div>';
+		buildString +='<div class="ui-block-b">'+count+'/10 Scans</div></div></a></li>';				
+
+	$('#scavenger_list').append(buildString);
+
+	}
+	
+	
+	
+	
+	function log(text)
+	{
+		if(debug)
+		{
+			console.info(text);
+		}	
+	}
+	
+	function navigate(promo_id)
+	{
+		$.mobile.changePage("index.html?promo_id="+promo_id+"#promo",{transition:"pop"});
+	}
+	
+	
+		
+	function loadPromo()
+	{
+	
+	log("loadPromo() called");				
+	//TODO test to see if an ID was infact provided
+	
+	if(promo_id==="")
+	{
+		//loadProgress();
+		return false;
+	
+	}
+	$.mobile.showPageLoadingMsg()
+	
+	$.ajax({
+			  url: base_site+"/backend.php?r=promos&a=get&promo_id="+promo_id,
+				  dataType:'json',
+					success: function(data, textStatus, jqXHR)
+					{
+						console.log(data);
+						buildPromo(data);
+						$.mobile.hidePageLoadingMsg()
+					}			
+				});	
+	}
+
+
+	function buildPromo(json)
+	{	
+		//log("json.logo "+json.logo);
+		$('#logo').fadeOut(function(){
+		
+		$('#logo').html('<img src="'+json.logo_img+'"/>');
+		$('#logo').fadeIn();
+		
+		});
+		
+		
+		$('#promo_image').fadeOut(function(){
+		
+		$('#promo_image').html('<img src="'+json.promo_img+'"/>');
+		$('#promo_image').fadeIn();
+		
+		
+		});
+
+			//$("#promo_code").html("<h2>Promo Code:"+json.promo_code+"</h2>");
+			//Now we test to see if the user has scanned this before
+	
+		getScans();		
+	}
+	
+	function logObject(theObject)
+	{
+		var buildString= "Object {";
+		var count = 0;
+		for(item in theObject)
+		{	
+			buildString+=theObject[count]+ ", "+item;
+		}
+		log(buildString);	
+	}
+	
+	
+	function testPrompt()
+	{
+		var code=prompt("Enter code:");
+		eval(code);
+	}
+	
+	
+	
+	function setFirstTime(newCustomer)
+	{
+		if(newCustomer)
+		{									
+			$.ajax({
+			  url: base_site+"/backend.php?r=scans&a=create&user_id="+uid+"&promo_id="+promo_id+"&first_visit=true",
+			  dataType:'json',
+				success: function(data, textStatus, jqXHR)
+				{
+					getScans();				
+				}			
+			});		
+				
+		}else
+		{
+				$.ajax({
+				  url: base_site+"/backend.php?r=scans&a=create&user_id="+uid+"&promo_id="+promo_id+"&first_visit=false",
+				  dataType:'json',
+					success: function(data, textStatus, jqXHR)
+					{
+						getScans();
+					}			
+				});					
+		}
+			$.mobile.changePage($('#promo'));
+	}
+	
+	
+	function getScans()
+	{
+	$.ajax({
+			  url: base_site+"/backend.php?r=scans&a=get&user_id="+uid+"&promo_id="+promo_id,
+				  dataType:'json',
+					success: function(data, textStatus, jqXHR)
+					{
+						
+						if(data.result_code ===100)
+						{
+							results = data.created;
+							this_promo = data;
+							if(!setupTimer(results))
+							{
+								expirePromo();
+							}		
+						}else
+						{	
+							$.mobile.changePage($('#first_time_dialog'));
+						}
+						
+					}			
+				});	
+	}
+	
+	
+	function expirePromo()
+	{
+		log(this_promo.expired_img);
+	
+		
+		$('#promo_image').fadeOut(function(){
+		
+		$('#promo_image').html('<img src="'+this_promo.expired_img+'"/>');
+		$('#promo_image').fadeIn();
+		
+		
+		});
+	}
+	
+function setupTimer(results)
+{			
+					var d = parseTimeStamp(results);						
+					var base_time = d.getTime();
+					var this_time = new Date();
+					var current_time = this_time.getTime();
+					var expire_time = base_time +(1000*60*30);
+					var time_left = expire_time - current_time;
+					
+					log(time_left);
+					if(time_left<0)
+					{
+						return false;
+					}
+					else
+					{
+						setTime(time_left)
+						resetTime();
+						return true;
+					}
+} 
+
+
+  function getPromos()
+  {
+	item_count = 0;
+  log('getPromos() called');
+
+		$.parse.get("promos/",{event_id:event_id}, function(json)
+		{
+			var column=1;
+			var html="";
+			
+			promos = json;
+			for(result in json.results)
+			{
+				promo_list[json.results[item_count].objectId] = item_count;
+				log("promo_list["+json.results[item_count].objectId+"] = "+item_count);
+				if(column==1)
+				{
+					html+= '<div class="ui-block-a">';
+					column = 2;
+				}else
+				{
+					html+= '<div class="ui-block-b">';
+					column = 1;
+				//Add a new row
+				}
+			
+					//html+='<a data-ajax="false" id="link'+json.results[item_count].objectId+'" href="#promo">';	
+					html+='<a data-ajax="false" id="link'+json.results[item_count].objectId+'" href="#" onClick="navigate(&quot'+json.results[item_count].objectId+'&quot)">';
+					html+='<div id="promo'+json.results[item_count].objectId+'" class="ui-body ui-body-c">';
+					html+='<img  src="img/unknown_promo.png" width="100px" height="100px">';
+					html+='<h4 class="sponsor_title">'+json.results[item_count].name+'</h4></div></a></div>';	
+					item_count++;
+			}
+			
+			$("#promo_listview").html(html);
+		$("#hunt_total").html(item_count++);
+		
+		$.parse.get("scans/",{fb_uid:uid}, function(json)
+		{
+		var count = 0;
+		for(result in json.results)
+			{
+						
+				$("#promo"+json.results[count].promo_id).toggleClass("ui-body-c").toggleClass("ui-body-e");
+				$("#promo"+json.results[count].promo_id+ " img").attr("src",promos.results[promo_list[json.results[count].promo_id]].logo);
+				$("#link"+json.results[count].promo_id).attr('href','http://kodely.nfshost.com/qrusadetest/index.html?promo_id='+json.results[count].promo_id);
+				//log("promo_doc reference number:"+promo_list[json.results[count].promo_id]);
+				//log(json.results[count].promo_id);	
+				count++;
+			}
+			$("#user_completed").html(count++);
+			$(this).trigger('updatelayout');
+		});
+		
+		});
+  }
+
+  function setTime(milliseconds)
+{
+	var total_seconds = Math.floor(milliseconds/1000);
+
+	//Get hours
+	total_minutes = Math.floor(total_seconds/60);
+	total_hours = Math.floor(total_minutes/60);
+	exact_minutes = total_minutes % 60;
+	exact_seconds = total_seconds % 60;
+
+	count_down.hours = total_hours;
+	count_down.minutes = exact_minutes;
+	count_down.seconds = exact_seconds;
+}
+
+
+
+function resetTime()
+{
+	clearTimeout(t);
+	secondPass();
+}
+function secondPass()
+{
+	if(+count_down.hours+count_down.minutes+count_down.seconds <=0)
+	{
+		expirePromo();
+		clearTimeout(t);
+		return false;
+	}
+	t=setTimeout("secondPass()",1000);
+	count_down.seconds--;
+
+	if(count_down.seconds<0)
+	{
+		count_down.seconds=59;
+		count_down.minutes--;
+	
+		if(count_down.minutes<0)
+		{
+			count_down.minutes=59;
+			count_down.hours--;
+				if(count_down.hours<0)
+				{
+					count_down.hours=24;
+					count_down.days--;
+				}
+		}
+	}
+	
+	$("#hours").html(count_down.hours);
+	$("#minutes").html(count_down.minutes);
+	$("#seconds").html(count_down.seconds);
+}
+  
+  
+  function clickProgress()
+  { 
+	$.mobile.changePage('pages.php?page=progress&event_id='+event_id+'&user_id='+uid);
+  }
+  
+   function clickScavengers()
+  { 
+	$.mobile.changePage('pages.php?page=scavengers&event_id='+event_id+'&user_id='+uid);
+  }
+  
+  function clickPrize()
+  { 
+	$.mobile.changePage('pages.php?page=prize&event_id='+event_id+'&user_id='+uid);
+  }
+  
+
+  
+  function parseTimeStamp(timeStamp)
+  {
+	var parts = timeStamp.split(' ');
+	datePart = parts[0].split('-');
+	timePart = parts[1].split(':');
+	
+	_date = new Date;
+
+	 _date.setUTCFullYear(Number(datePart[0]));
+	 _date.setUTCMonth(Number(datePart[1])-1);//Check this out later
+	 _date.setUTCDate(Number(datePart[2]));
+	 _date.setUTCHours(Number(timePart[0]));
+	 _date.setUTCMinutes(Number(timePart[1]));
+	 _date.setUTCSeconds(Number(timePart[2]));
+	   return _date;
+  }
+  
+ function parseISO8601(str) {
+ // we assume str is a UTC date ending in 'Z'
+
+ var parts = str.split('T'),
+ dateParts = parts[0].split('-'),
+ timeParts = parts[1].split('Z'),
+ timeSubParts = timeParts[0].split(':'),
+ timeSecParts = timeSubParts[2].split('.'),
+ timeHours = Number(timeSubParts[0]),
+ _date = new Date;
+
+ _date.setUTCFullYear(Number(dateParts[0]));
+ _date.setUTCMonth(Number(dateParts[1])-1);
+ _date.setUTCDate(Number(dateParts[2]));
+ _date.setUTCHours(Number(timeHours));
+ _date.setUTCMinutes(Number(timeSubParts[1]));
+ _date.setUTCSeconds(Number(timeSecParts[0]));
+ if (timeSecParts[1]) _date.setUTCMilliseconds(Number(timeSecParts[1]));
+
+ // by using setUTC methods the date has already been converted to local time(?)
+ return _date;
+}
+   </script>
+  
+  <style>
+    body.connected #login { display: none; }
+    body.connected #logout { display: block; }
+    body.not_connected #login { display: block; }
+    body.not_connected #logout { display: none; }
+	
+	
+	
+  </style>
